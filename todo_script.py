@@ -112,7 +112,6 @@ def find_last_not_done_items():
             # add a newline at the end between todos
             not_done_items_and_no_empty_dates += "\n"
 
-            # date_str = filename.split(TODO_PREFIX)[1].split(".txt")[0]
             return not_done_items_and_no_empty_dates  # , date_str
         else:
             # if there is nothing from the day being considered, let's continue
