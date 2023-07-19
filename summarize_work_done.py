@@ -1,3 +1,31 @@
+"""
+This script navigates through ToDo files in a specified directory, analyzes each ToDo list and aggregates 
+completed tasks. The aggregated tasks are presented in a weekly view, sorted in reverse chronological order. 
+
+This script performs the following steps:
+
+1. Defines constants for the ToDo directory, file naming convention, task status markers, and date format.
+
+2. Initializes a data structure (dictionary) to hold completed tasks categorized by year, month, and week.
+
+3. Retrieves a list of ToDo files from the directory, sorts them in reverse chronological order.
+
+4. Iterates through each ToDo file, starting with the most recent. For each file, it:
+
+    - Extracts the date from the filename.
+    - Retrieves the year, month, and week of the ToDo file.
+    - Initializes a new list in the data structure if the current week's key doesn't exist.
+    - Opens the file and reads its lines.
+    - Finds lines with a completed task marker and appends them to the appropriate list in the data structure.
+
+5. Finally, it prints out the completed tasks sorted by year, month, and week, providing a clear view of 
+   completed tasks on a weekly basis.
+
+The script ignores tasks marked with a personal marker ("[p]"). It assumes that tasks are marked as done with a 
+"[done]" tag, and the tasks are prefixed with a "-" symbol, which is removed before storage. 
+
+Please adjust the constants at the beginning of the script to match your environment and preference.
+"""
 import os
 import re
 from datetime import datetime
