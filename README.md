@@ -17,6 +17,8 @@ In addition, the script provides a summarization feature:
 # How to Run
 To utilize the Simple ToDo List, follow the instructions below:
 
+0. Make sure to have sublime text installed and alias `s` to the `subl` command. Or, you can modify the subprocess call to some other text editor opening command.
+
 1. Clone the repository:
     ```
     git clone github.com/morganrivers/simple_todolist.git
