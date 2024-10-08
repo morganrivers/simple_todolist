@@ -1,6 +1,6 @@
 """
-This script creates a daily todo file in the ~/todo directory. It allows you to keep 
-track of your tasks on a day-to-day basis and carry forward unfinished tasks from the 
+This script creates a daily todo file in the ~/todo directory. It allows you to keep
+track of your tasks on a day-to-day basis and carry forward unfinished tasks from the
 previous day. The script performs the following actions:
 
 - Scans the ~/todo directory for existing todo files and identifies the most recent file
@@ -18,9 +18,9 @@ from datetime import datetime
 import re
 
 # Define constants
-TODO_DIRECTORY = os.path.expanduser("~/todo")
+TODO_DIRECTORY = os.path.expanduser("~/Sync")
 TODO_FILENAME_FORMAT = "todo_{date}.txt"
-SUBLIME_ALIAS = "s"
+SUBLIME_ALIAS = "z"
 TODO_START = "todo from {date}:\n - \n\n"
 PREVIOUS_TODO_HEADER = "\ntodo from {date}:\n"
 DATE_FORMAT = "%Y_%m_%d"
@@ -37,7 +37,7 @@ if not os.path.exists(TODO_DIRECTORY):
 
 
 def check_string_is_worth_reprinting(line):
-    if DONE_MARKER in line:
+    if DONE_MARKER in line.lower():
         return False
 
     # If none of the above conditions are met, line is worth reprinting today
@@ -106,13 +106,12 @@ def find_last_not_done_items():
         not_done_items_and_no_empty_dates = remove_lines_with_empty_todo_in_them(
             not_done_items
         )
-
-        # If there are any such lines, return them along with the date from the filename
+        # If there are any such lines, return them as a list of strings
         if not_done_items_and_no_empty_dates:
-            # add a newline at the end between todos
-            not_done_items_and_no_empty_dates += "\n"
+            # Ensure all items have a newline character at the end
+            not_done_items_and_no_empty_dates = [item if item.endswith('\n') else item + '\n' for item in not_done_items_and_no_empty_dates]
 
-            return not_done_items_and_no_empty_dates  # , date_str
+            return not_done_items_and_no_empty_dates
         else:
             # if there is nothing from the day being considered, let's continue
             continue

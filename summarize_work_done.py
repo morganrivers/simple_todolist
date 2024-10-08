@@ -31,7 +31,7 @@ import re
 from datetime import datetime
 
 # Define constants
-TODO_DIRECTORY = os.path.expanduser("~/todo")
+TODO_DIRECTORY = os.path.expanduser("~/Documents/MEGAsync")
 TODO_FILENAME_FORMAT = "todo_{date}.txt"
 DONE_MARKER = "[done]"
 TODO_PREFIX = "todo_"
