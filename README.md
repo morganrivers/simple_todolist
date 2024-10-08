@@ -34,6 +34,8 @@ To utilize the Simple ToDo List, follow the instructions below:
     python3 todo_script.py
     ```
     The ToDo list will be created in a new file in the ~/todo directory.
+ 
+    I have set up my machine to have a keyboard command that opens the to-do list in the text editor. This makes it really easy to get to the ToDo list whenever you want
 
 After completing some tasks, you can print a summary of your progress by executing:
 
@@ -42,3 +44,4 @@ python3 summarize_work_done.py
 ```
 
 This will provide a report of the tasks you have completed and the dates on which they were completed.
+
