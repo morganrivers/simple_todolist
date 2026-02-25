@@ -9,6 +9,9 @@ previous day. The script performs the following actions:
 - Retrieves the unfinished tasks from the previous day's todo file (if any) and includes
  them in the current day's file.
 - Opens the current day's todo file in the Sublime Text editor.
+
+TODO: add calendar integration.
+
 """
 
 # Import required libraries
