@@ -188,6 +188,8 @@ def create_today_todo():
     # Open today's todo file in Sublime
     try:
         subprocess.run([SUBLIME_ALIAS, filename], check=True)
+    except FileNotFoundError:
+        print(f"'{SUBLIME_ALIAS}' not found, skipping editor. File saved at: {filename}")
     except subprocess.CalledProcessError:
         print(
             "Failed to open "
