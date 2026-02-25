@@ -21,8 +21,11 @@ import subprocess
 from datetime import datetime
 import re
 
+from due_date_parser import extract_due, is_scheduled, mark_scheduled
+
 # Define constants
 TODO_DIRECTORY = os.path.expanduser("~/Sync")
+FETCH_EMAILS_SCRIPT = "/home/protected/email_summary/fetch_emails.mjs"
 TODO_FILENAME_FORMAT = "todo_{date}.txt"
 SUBLIME_ALIAS = "u"
 TODO_START = "todo from {date}:\n - \n\n"
@@ -127,6 +130,37 @@ def find_last_not_done_items():
     return [], ""
 
 
+def schedule_due_items(items):
+    """
+    For each item with [DUE ...] and no [SCHEDULED] marker, create a Google Calendar
+    event via fetch_emails.mjs and mark it as scheduled.
+    Returns updated list of items.
+    """
+    if not os.path.exists(FETCH_EMAILS_SCRIPT):
+        return items
+
+    processed = []
+    for item in items:
+        due = extract_due(item)
+        if due and not is_scheduled(item):
+            _, dt, is_whole_day = due
+            description = item.strip().lstrip("- ").strip()
+            try:
+                subprocess.run(
+                    ["node", FETCH_EMAILS_SCRIPT, "create-event",
+                     description,
+                     dt.isoformat(),
+                     "true" if is_whole_day else "false"],
+                    check=True,
+                    timeout=30,
+                )
+                item = mark_scheduled(item)
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+                print(f"Warning: failed to schedule calendar event for: {description!r} ({e})")
+        processed.append(item)
+    return processed
+
+
 def create_today_todo():
     """
     This function creates a todo file for today, which includes any items not yet done
@@ -148,6 +182,7 @@ def create_today_todo():
 
             # If there are any items from the last todo file, write them with a header
             if last_items:
+                last_items = schedule_due_items(last_items)
                 f.writelines(last_items)
 
     # Open today's todo file in Sublime
