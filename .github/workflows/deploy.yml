@@ -13,12 +13,10 @@ jobs:
       - name: Deploy via SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          SERVER_USER: ${{ secrets.SERVER_USER }}
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts
-          ssh -i ~/.ssh/id_rsa "$SERVER_USER@$SERVER_HOST" \
-            "cd /private/simple_todolist && git pull origin main"
+          ssh-keyscan -H ssh.nyc1.nearlyfreespeech.net >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/id_rsa morganrivers_morganrivers@ssh.nyc1.nearlyfreespeech.net \
+            "cd /home/private/simple_todolist && git pull origin main"
