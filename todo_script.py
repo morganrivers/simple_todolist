@@ -51,6 +51,7 @@ def remove_lines_with_empty_todo_in_them(not_done_items):
     """
     # The regular expression pattern for a line that matches "todo from {date}:"
     date_pattern = r"^todo from \d{4}_\d{2}_\d{2}:$"
+
     # The regular expression pattern for a line that matches " - "
     empty_todo_pattern = r"^[-\s]*$"
 
