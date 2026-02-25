@@ -130,35 +130,51 @@ def find_last_not_done_items():
     return [], ""
 
 
-def schedule_due_items(items):
+def schedule_due_items_in_recent_files():
     """
-    For each item with [DUE ...] and no [SCHEDULED] marker, create a Google Calendar
-    event via fetch_emails.mjs and mark it as scheduled.
-    Returns updated list of items.
+    Scan the last 3 todo files for [DUE ...] items without [SCHEDULED].
+    Schedule each on Google Calendar and write [SCHEDULED] back into the file.
     """
     if not os.path.exists(FETCH_EMAILS_SCRIPT):
-        return items
+        print(f"Calendar script not found at {FETCH_EMAILS_SCRIPT}, skipping scheduling.")
+        return
 
-    processed = []
-    for item in items:
-        due = extract_due(item)
-        if due and not is_scheduled(item):
-            _, dt, is_whole_day = due
-            description = item.strip().lstrip("- ").strip()
-            try:
-                subprocess.run(
-                    ["node", FETCH_EMAILS_SCRIPT, "create-event",
-                     description,
-                     dt.isoformat(),
-                     "true" if is_whole_day else "false"],
-                    check=True,
-                    timeout=30,
-                )
-                item = mark_scheduled(item)
-            except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-                print(f"Warning: failed to schedule calendar event for: {description!r} ({e})")
-        processed.append(item)
-    return processed
+    todo_files = sorted(
+        [f for f in os.listdir(TODO_DIRECTORY) if f.startswith(TODO_PREFIX)],
+        reverse=True,
+    )[:3]
+
+    for filename in todo_files:
+        filepath = os.path.join(TODO_DIRECTORY, filename)
+        with open(filepath, "r") as f:
+            lines = f.readlines()
+
+        updated = False
+        new_lines = []
+        for line in lines:
+            due = extract_due(line)
+            if due and not is_scheduled(line):
+                _, dt, is_whole_day = due
+                description = line.strip().lstrip("- ").strip()
+                try:
+                    subprocess.run(
+                        ["node", FETCH_EMAILS_SCRIPT, "create-event",
+                         description,
+                         dt.isoformat(),
+                         "true" if is_whole_day else "false"],
+                        check=True,
+                        timeout=30,
+                    )
+                    line = mark_scheduled(line)
+                    updated = True
+                    print(f"Scheduled: {description!r}")
+                except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+                    print(f"Warning: failed to schedule: {description!r} ({e})")
+            new_lines.append(line)
+
+        if updated:
+            with open(filepath, "w") as f:
+                f.writelines(new_lines)
 
 
 def create_today_todo():
@@ -182,8 +198,9 @@ def create_today_todo():
 
             # If there are any items from the last todo file, write them with a header
             if last_items:
-                last_items = schedule_due_items(last_items)
                 f.writelines(last_items)
+
+    schedule_due_items_in_recent_files()
 
     # Open today's todo file in Sublime
     try:
