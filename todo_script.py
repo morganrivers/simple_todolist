@@ -130,10 +130,41 @@ def find_last_not_done_items():
     return [], ""
 
 
+BLOCK_DATE_PATTERN = re.compile(r'^todo from (\d{4}_\d{2}_\d{2}):')
+
+
+def parse_blocks_from_file(filepath):
+    """
+    Parse a todo file into blocks keyed by date string.
+    Returns (lines, blocks) where blocks is a list of (date_str, start_idx, end_idx).
+    end_idx is exclusive.
+    """
+    with open(filepath, "r") as f:
+        lines = f.readlines()
+
+    blocks = []
+    current_date = None
+    current_start = None
+
+    for i, line in enumerate(lines):
+        m = BLOCK_DATE_PATTERN.match(line.strip())
+        if m:
+            if current_date is not None:
+                blocks.append((current_date, current_start, i))
+            current_date = m.group(1)
+            current_start = i
+
+    if current_date is not None:
+        blocks.append((current_date, current_start, len(lines)))
+
+    return lines, blocks
+
+
 def schedule_due_items_in_recent_files():
     """
-    Scan the last 3 todo files for [DUE ...] items without [SCHEDULED].
-    Schedule each on Google Calendar and write [SCHEDULED] back into the file.
+    Find the 3 most recent 'todo from DATE:' blocks across all todo files,
+    schedule any unscheduled [DUE ...] items within them, and write [SCHEDULED]
+    back in-place.
     """
     if not os.path.exists(FETCH_EMAILS_SCRIPT):
         print(f"Calendar script not found at {FETCH_EMAILS_SCRIPT}, skipping scheduling.")
@@ -142,16 +173,25 @@ def schedule_due_items_in_recent_files():
     todo_files = sorted(
         [f for f in os.listdir(TODO_DIRECTORY) if f.startswith(TODO_PREFIX)],
         reverse=True,
-    )[:3]
+    )
 
-    for filename in todo_files:
-        filepath = os.path.join(TODO_DIRECTORY, filename)
-        with open(filepath, "r") as f:
-            lines = f.readlines()
+    if not todo_files:
+        return
 
-        updated = False
-        new_lines = []
-        for line in lines:
+    filepath = os.path.join(TODO_DIRECTORY, todo_files[0])
+    lines, blocks = parse_blocks_from_file(filepath)
+    file_lines = {filepath: list(lines)}
+
+    # Sort by date descending, take the 3 most recent blocks
+    blocks.sort(key=lambda x: x[0], reverse=True)
+    recent_blocks = blocks[:3]
+
+    files_changed = set()
+    mutable_lines = file_lines[filepath]
+
+    for date_str, start, end in recent_blocks:
+        for i in range(start, end):
+            line = mutable_lines[i]
             due = extract_due(line)
             if due and not is_scheduled(line):
                 _, dt, is_whole_day = due
@@ -165,16 +205,15 @@ def schedule_due_items_in_recent_files():
                         check=True,
                         timeout=30,
                     )
-                    line = mark_scheduled(line)
-                    updated = True
+                    mutable_lines[i] = mark_scheduled(line)
+                    files_changed.add(filepath)
                     print(f"Scheduled: {description!r}")
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
                     print(f"Warning: failed to schedule: {description!r} ({e})")
-            new_lines.append(line)
 
-        if updated:
-            with open(filepath, "w") as f:
-                f.writelines(new_lines)
+    for filepath in files_changed:
+        with open(filepath, "w") as f:
+            f.writelines(file_lines[filepath])
 
 
 def create_today_todo():
