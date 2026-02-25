@@ -20,7 +20,7 @@ import re
 # Define constants
 TODO_DIRECTORY = os.path.expanduser("~/Sync")
 TODO_FILENAME_FORMAT = "todo_{date}.txt"
-SUBLIME_ALIAS = "z"
+SUBLIME_ALIAS = "u"
 TODO_START = "todo from {date}:\n - \n\n"
 PREVIOUS_TODO_HEADER = "\ntodo from {date}:\n"
 DATE_FORMAT = "%Y_%m_%d"
