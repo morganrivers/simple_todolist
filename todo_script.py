@@ -11,6 +11,7 @@ previous day. The script performs the following actions:
 - Opens the current day's todo file in the Sublime Text editor.
 
 TODO: add calendar integration.
+	- whenever I have a tag like [March 17th], then the todo is added to my google calendar as a full day event
 
 """
 
