@@ -30,7 +30,7 @@ def check_sync_dir():
     if os.path.isdir(TODO_DIRECTORY):
         return PASS, TODO_DIRECTORY
     return FAIL, f"Directory not found: {TODO_DIRECTORY}"
-check("~/Sync directory exists", check_sync_dir)
+check("TODO_DIRECTORY exists", check_sync_dir)
 
 def check_dateutil():
     import dateutil.parser
@@ -46,6 +46,8 @@ check("node in PATH", check_node)
 
 def check_fetch_emails():
     from todo_script import FETCH_EMAILS_SCRIPT
+    if not FETCH_EMAILS_SCRIPT:
+        return WARN, "fetch_emails_script not configured (scheduling will be skipped)"
     if os.path.exists(FETCH_EMAILS_SCRIPT):
         return PASS, FETCH_EMAILS_SCRIPT
     return WARN, f"Not found: {FETCH_EMAILS_SCRIPT} (scheduling will be skipped)"

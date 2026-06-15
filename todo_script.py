@@ -1,42 +1,38 @@
 """
-This script creates a daily todo file in the ~/todo directory. It allows you to keep
-track of your tasks on a day-to-day basis and carry forward unfinished tasks from the
-previous day. The script performs the following actions:
+Creates a daily todo file in the configured directory (default: ~/todo).
+Carries forward unfinished tasks from the previous day.
+Optionally schedules [DUE ...] items via a calendar script (requires
+python-dateutil and a fetch_emails_script configured below).
 
-- Scans the ~/todo directory for existing todo files and identifies the most recent file
- that contains tasks marked as unfinished.
-- Creates a new todo file for the current day, using the format 'todo_YYYY_MM_DD.txt'.
-- Retrieves the unfinished tasks from the previous day's todo file (if any) and includes
- them in the current day's file.
-- Opens the current day's todo file in the Sublime Text editor.
-
-TODO: add calendar integration.
-	- whenever I have a tag like [March 17th], then the todo is added to my google calendar as a full day event
-
+Config file: ~/.config/simple_todolist/config.json
+  todo_directory       path to todo files (default: ~/todo)
+  fetch_emails_script  path to calendar node script (optional)
+  editor               editor command (default: $VISUAL / $EDITOR / xdg-open / nano)
 """
 
-# Import required libraries
 import os
 import subprocess
 from datetime import datetime
 import re
 
-from due_date_parser import extract_due, is_scheduled, mark_scheduled
+from config import load_config
 
-# Define constants
-TODO_DIRECTORY = os.path.expanduser("~/Sync")
-FETCH_EMAILS_SCRIPT = "/home/protected/email_summary/fetch_emails.mjs"
+try:
+    from due_date_parser import extract_due, is_scheduled, mark_scheduled
+    HAS_DUE_DATE_PARSER = True
+except ImportError:
+    HAS_DUE_DATE_PARSER = False
+
+CONFIG = load_config()
+TODO_DIRECTORY = CONFIG["todo_directory"]
+FETCH_EMAILS_SCRIPT = CONFIG.get("fetch_emails_script")
+
 TODO_FILENAME_FORMAT = "todo_{date}.txt"
-SUBLIME_ALIAS = "u"
 TODO_START = "todo from {date}:\n - \n\n"
-PREVIOUS_TODO_HEADER = "\ntodo from {date}:\n"
 DATE_FORMAT = "%Y_%m_%d"
 TODO_PREFIX = "todo_"
 DONE_MARKER = "[done]"
-FROM_TODAY_MARKER = "todo from today"
-TODO_FROM_TODAY_MARKER = "todo from"
 
-# Get today's date as a string
 TODAY = datetime.now().date().strftime(DATE_FORMAT)
 
 if not os.path.exists(TODO_DIRECTORY):
@@ -44,101 +40,54 @@ if not os.path.exists(TODO_DIRECTORY):
 
 
 def check_string_is_worth_reprinting(line):
-    if DONE_MARKER in line.lower():
-        return False
-
-    # If none of the above conditions are met, line is worth reprinting today
-    return True
+    return DONE_MARKER not in line.lower()
 
 
 def remove_lines_with_empty_todo_in_them(not_done_items):
-    """
-    This function checks for any lines in not_done_items that matches the format of
-    TODO_START and removes them.
-    """
-    # The regular expression pattern for a line that matches "todo from {date}:"
     date_pattern = r"^todo from \d{4}_\d{2}_\d{2}:$"
-
-    # The regular expression pattern for a line that matches " - "
     empty_todo_pattern = r"^[-\s]*$"
-
-    not_done_items_with_empty_todo_removed = []
+    result = []
     last_date_line = None
 
     for line in not_done_items:
         if re.fullmatch(date_pattern, line.strip()):
-            if last_date_line is not None:
-                last_date_line = None
-            # Store the current date line to check against the next line
             last_date_line = line
-        elif last_date_line is not None and re.fullmatch(
-            empty_todo_pattern, line.strip()
-        ):
-            # If the last line was a date line and the current line is empty, discard
+        elif last_date_line is not None and re.fullmatch(empty_todo_pattern, line.strip()):
             last_date_line = None
-            continue
         else:
-            # If the last line was a date line and wasn't discarded, print it
             if last_date_line is not None:
-                not_done_items_with_empty_todo_removed.append(last_date_line)
+                result.append(last_date_line)
                 last_date_line = None
-            # Print the current line
-            not_done_items_with_empty_todo_removed.append(line)
+            result.append(line)
 
-    return not_done_items_with_empty_todo_removed
+    return result
 
 
 def find_last_not_done_items():
-    """
-    This function finds the most recent todo file with items that are not yet done,
-    and returns these items along with the date of the file.
-    """
-    # Get a list of todo files, sorted by date
     todo_files = sorted(
         [f for f in os.listdir(TODO_DIRECTORY) if f.startswith(TODO_PREFIX)],
         reverse=True,
     )
 
-    # For each file, starting with the most recent
     for filename in todo_files:
         if filename == TODO_FILENAME_FORMAT.format(date=TODAY):
             continue
-        # Open the file and read its lines
         with open(os.path.join(TODO_DIRECTORY, filename), "r") as f:
             lines = f.readlines()
 
-        not_done_items = [
-            line for line in lines if (check_string_is_worth_reprinting(line))
-        ]
+        not_done_items = [line for line in lines if check_string_is_worth_reprinting(line)]
+        filtered = remove_lines_with_empty_todo_in_them(not_done_items)
 
-        not_done_items_and_no_empty_dates = remove_lines_with_empty_todo_in_them(
-            not_done_items
-        )
-        # If there are any such lines, return them as a list of strings
-        if not_done_items_and_no_empty_dates:
-            # Ensure all items have a newline character at the end
-            not_done_items_and_no_empty_dates = [item if item.endswith('\n') else item + '\n' for item in not_done_items_and_no_empty_dates]
+        if filtered:
+            return [item if item.endswith('\n') else item + '\n' for item in filtered]
 
-            return not_done_items_and_no_empty_dates
-        else:
-            # if there is nothing from the day being considered, let's continue
-            continue
-
-        break  # forget about any earlier days. We only care about the most recent day
-
-    # If no such lines are found in any file, return empty list and string
-    return [], ""
+    return []
 
 
 BLOCK_DATE_PATTERN = re.compile(r'^todo from (\d{4}_\d{2}_\d{2}):')
 
 
 def parse_blocks_from_file(filepath):
-    """
-    Parse a todo file into blocks keyed by date string.
-    Returns (lines, blocks) where blocks is a list of (date_str, start_idx, end_idx).
-    end_idx is exclusive.
-    """
     with open(filepath, "r") as f:
         lines = f.readlines()
 
@@ -161,35 +110,25 @@ def parse_blocks_from_file(filepath):
 
 
 def schedule_due_items_in_recent_files():
-    """
-    Find the 3 most recent 'todo from DATE:' blocks across all todo files,
-    schedule any unscheduled [DUE ...] items within them, and write [SCHEDULED]
-    back in-place.
-    """
-    if not os.path.exists(FETCH_EMAILS_SCRIPT):
-        print(f"Calendar script not found at {FETCH_EMAILS_SCRIPT}, skipping scheduling.")
+    if not HAS_DUE_DATE_PARSER:
+        return
+    if not FETCH_EMAILS_SCRIPT or not os.path.exists(FETCH_EMAILS_SCRIPT):
         return
 
     todo_files = sorted(
         [f for f in os.listdir(TODO_DIRECTORY) if f.startswith(TODO_PREFIX)],
         reverse=True,
     )
-
     if not todo_files:
         return
 
     filepath = os.path.join(TODO_DIRECTORY, todo_files[0])
     lines, blocks = parse_blocks_from_file(filepath)
-    file_lines = {filepath: list(lines)}
+    mutable_lines = list(lines)
+    changed = False
 
-    # Sort by date descending, take the 3 most recent blocks
     blocks.sort(key=lambda x: x[0], reverse=True)
-    recent_blocks = blocks[:3]
-
-    files_changed = set()
-    mutable_lines = file_lines[filepath]
-
-    for date_str, start, end in recent_blocks:
+    for _, start, end in blocks[:3]:
         for i in range(start, end):
             line = mutable_lines[i]
             due = extract_due(line)
@@ -199,62 +138,54 @@ def schedule_due_items_in_recent_files():
                 try:
                     subprocess.run(
                         ["node", FETCH_EMAILS_SCRIPT, "create-event",
-                         description,
-                         dt.isoformat(),
+                         description, dt.isoformat(),
                          "true" if is_whole_day else "false"],
                         check=True,
                         timeout=30,
                     )
                     mutable_lines[i] = mark_scheduled(line)
-                    files_changed.add(filepath)
+                    changed = True
                     print(f"Scheduled: {description!r}")
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
                     print(f"Warning: failed to schedule: {description!r} ({e})")
 
-    for filepath in files_changed:
+    if changed:
         with open(filepath, "w") as f:
-            f.writelines(file_lines[filepath])
+            f.writelines(mutable_lines)
+
+
+def open_in_editor(filename):
+    candidates = list(filter(None, [
+        CONFIG.get("editor"),
+        os.environ.get("VISUAL"),
+        os.environ.get("EDITOR"),
+        "xdg-open",
+        "nano",
+    ]))
+    for cmd in candidates:
+        try:
+            subprocess.run([cmd, filename], check=True)
+            return
+        except FileNotFoundError:
+            continue
+        except subprocess.CalledProcessError as e:
+            print(f"Editor '{cmd}' exited with error {e.returncode}. File at: {filename}")
+            return
+    print(f"No editor found. File saved at: {filename}")
 
 
 def create_today_todo():
-    """
-    This function creates a todo file for today, which includes any items not yet done
-    from the most recent previous todo file. If the file already exists, it will open.
-    """
-
-    # Create the filename for today's todo file
     filename = os.path.join(TODO_DIRECTORY, TODO_FILENAME_FORMAT.format(date=TODAY))
 
-    # If the file doesn't exist, create it and populate it with items from the last todo
     if not os.path.exists(filename):
-        # Find the not done items from the last todo file
         last_items = find_last_not_done_items()
-
-        # Write to today's todo file
         with open(filename, "w") as f:
-            # Write the header for today's tasks
             f.write(TODO_START.format(date=TODAY))
-
-            # If there are any items from the last todo file, write them with a header
             if last_items:
                 f.writelines(last_items)
 
     schedule_due_items_in_recent_files()
-
-    # Open today's todo file in Sublime
-    try:
-        subprocess.run([SUBLIME_ALIAS, filename], check=True)
-    except FileNotFoundError:
-        print(f"'{SUBLIME_ALIAS}' not found, skipping editor. File saved at: {filename}")
-    except subprocess.CalledProcessError:
-        print(
-            "Failed to open "
-            + filename
-            + " with Sublime Text."
-            + "Please make sure Sublime Text is installed and '"
-            + SUBLIME_ALIAS
-            + "' is a valid command to open Sublime Text.",
-        )
+    open_in_editor(filename)
 
 
 if __name__ == "__main__":

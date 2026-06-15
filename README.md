@@ -8,7 +8,7 @@ The `todo_script.py` script performs a variety of tasks:
 - It scans the ~/todo directory for existing ToDo files and identifies the most recent file containing tasks that are marked as unfinished.
 - It creates a new ToDo file for the current day, adhering to the 'todo_YYYY_MM_DD.txt' format.
 - It fetches any unfinished tasks from the previous day's ToDo file and integrates them into the current day's file.
-- It launches the current day's ToDo file in the Sublime Text editor for immediate use and editing.
+- It launches the current day's ToDo file in your default editor (`$VISUAL`, `$EDITOR`, `xdg-open`, or `nano`).
 
 In addition, the script provides a summarization feature:
 
@@ -16,8 +16,6 @@ In addition, the script provides a summarization feature:
 
 # How to Run
 To utilize the Simple ToDo List, follow the instructions below:
-
-0. Make sure to have sublime text installed and alias `s` to the `subl` command. Or, you can modify the subprocess call to some other text editor opening command.
 
 1. Clone the repository:
     ```
